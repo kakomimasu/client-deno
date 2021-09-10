@@ -1,7 +1,6 @@
 import { Action, args, cl, diffTime, sleep } from "./client_util.js";
 
-import ApiClient from "https://codeforkosen.github.io/Kakomimasu/client_js/api_client.js";
-import dotenv from "https://taisukef.github.io/denolib/dotenv.js";
+import { ApiClient, dotenv } from "./deps.js";
 
 class KakomimasuClient {
   apiClient = new ApiClient("https://kakomimasu.website");
