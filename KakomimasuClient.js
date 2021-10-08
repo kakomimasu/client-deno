@@ -3,7 +3,7 @@ import { Action, args, cl, diffTime, sleep } from "./client_util.js";
 import { ApiClient, dotenv } from "./deps.js";
 
 class KakomimasuClient {
-  apiClient = new ApiClient("https://kakomimasu.website");
+  apiClient = new ApiClient("https://kakomimasu.com");
 
   constructor(id, name, spec, password) {
     dotenv.config();
