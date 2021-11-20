@@ -136,8 +136,8 @@ class KakomimasuClient {
       for (let j = 0; j < w; j++) {
         const idx = i * w + j;
         const point = p[idx];
-        const type = tiled[idx][0];
-        const pid = tiled[idx][1];
+        const type = tiled[idx].type;
+        const pid = tiled[idx].player;
         row.push({ type, pid, point, x: j, y: i, agentPid: -1 });
       }
       res.push(row);
@@ -204,7 +204,7 @@ class KakomimasuClient {
       cl("nextTurnUnixTime", bknext);
       await sleep(diffTime(bknext));
 
-      for (;;) {
+      for (; ;) {
         const res = await this.apiClient.getMatch(this.gameId);
         if (res.success) this.gameInfo = res.data;
         else throw Error("Get Match Error");
