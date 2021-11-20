@@ -2,6 +2,12 @@ import { Action, KakomimasuClient } from "./KakomimasuClient.js";
 
 // アルゴリズムはこれを継承する
 export class Algorithm {
+  onInit(_points, _agentCount, _totalTurn) { };
+  onTurn(_field, _playerNumber, agents, _turn) {
+    const actions = agents.map((_, i) => [i, "NONE", 0, 0]);
+    return actions;
+  };
+
   // サーバに接続して対戦する(id,name,spec,passwordの連想配列を渡す)
   async match(param) {
     const kc = new KakomimasuClient(
