@@ -77,6 +77,7 @@ class KakomimasuClient {
       matchParam,
       `Bearer ${this.bearerToken}`,
     );
+    this.pic = MatchRes.data.pic;
     //cl(MatchRes);
     if (MatchRes.success) {
       const matchGame = MatchRes.data;
@@ -192,7 +193,7 @@ class KakomimasuClient {
     const res = await this.apiClient.setAction(
       this.gameId,
       { actions, index: this.pno },
-      "Bearer " + this.bearerToken,
+      this.pic,
     );
     //console.log("setActions", res);
     if (res.success === false) throw Error("Set Action Error");
