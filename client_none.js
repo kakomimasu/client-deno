@@ -12,9 +12,7 @@ export class ClientNone extends Algorithm {
 if (import.meta.main) {
   const a = new ClientNone();
   a.match({
-    id: "ai-none",
     name: "AI-NONE",
-    spec: "なにもしない",
-    password: "ai-none-pw",
+    spec: "なにもしない"
   });
 }

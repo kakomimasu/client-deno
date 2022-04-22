@@ -38,9 +38,7 @@ export class Kacom extends Algorithm {
 if (import.meta.main) {
   const a = new Kacom();
   a.match({
-    id: "taisukef_kacom",
     name: "kacom",
-    spec: "kacom",
-    password: "tf_kacom_kakomimasu",
+    spec: "kacom"
   });
 }

@@ -11,10 +11,8 @@ export class Algorithm {
   // サーバに接続して対戦する(id,name,spec,passwordの連想配列を渡す)
   async match(param) {
     const kc = new KakomimasuClient(
-      param.id,
       param.name,
-      param.spec,
-      param.password,
+      param.spec
     );
     kc.setServerHost(param.host);
     let info = await kc.waitMatching();
