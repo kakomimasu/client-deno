@@ -36,33 +36,15 @@ class KakomimasuClient {
     }
   }
   async waitMatching() { // GameInfo
-    let user;
-    if (!this.bearerToken) {
-      // ユーザ取得（ユーザがなかったら新規登録）
-      const userRes = await this.apiClient.usersShow(
-        this.id,
-        `Basic ${this.id}:${this.password}`,
-      );
-      if (userRes.success) user = userRes.data;
-      else {
-        const res = await this.apiClient.usersRegist({
-          screenName: this.name,
-          name: this.id,
-          password: this.password,
-        });
-        if (res.success) user = res.data;
-        else throw Error("User Regist Error");
-      }
-      this.bearerToken = user.bearerToken;
-      cl(user);
-    }
-
-    // プレイヤー登録
     const matchParam = {
-      id: user?.id,
-      password: this.password,
       spec: this.spec,
     };
+    // Bearerがない場合はゲストで参加
+    if (!this.bearerToken) {
+      matchParam.guest = {
+        name: this.name
+      };
+    }
     if (args.useAi) {
       matchParam.useAi = true;
       matchParam.aiOption = {
