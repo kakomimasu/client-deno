@@ -145,9 +145,7 @@ export class ClientA5 extends Algorithm {
 if (import.meta.main) {
   const a = new ClientA5();
   a.match({
-    id: "ai-5",
     name: "AI-5",
-    spec: "破壊者",
-    password: "ai-5-pw",
+    spec: "破壊者"
   });
 }

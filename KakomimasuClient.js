@@ -5,10 +5,8 @@ import { ApiClient, dotenv } from "./deps.js";
 class KakomimasuClient {
   apiClient = new ApiClient("https://api.kakomimasu.com");
 
-  constructor(id, name, spec, password) {
+  constructor(name, spec) {
     dotenv.config();
-    this.id = id || Deno.env.get("id");
-    this.password = password || Deno.env.get("password");
     this.name = name || Deno.env.get("name");
     this.spec = spec || Deno.env.get("spec");
     if (!args.aiOnly) this.bearerToken = Deno.env.get("bearerToken");

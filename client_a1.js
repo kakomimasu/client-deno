@@ -57,9 +57,7 @@ export class ClientA1 extends Algorithm {
 if (import.meta.main) {
   const a = new ClientA1();
   a.match({
-    id: "ai-1",
     name: "AI-1",
-    spec: "",
-    password: "ai-1-pw",
+    spec: ""
   });
 }
