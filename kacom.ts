@@ -1,11 +1,14 @@
 // 大きく囲む戦略
-import { Algorithm, AgentPos, Field, ActionPost } from "./algorithm.ts";
+import { ActionPost, AgentPos, Algorithm, Field } from "./algorithm.ts";
 
 export class Kacom extends Algorithm {
-
   private line: number[][] = [];
 
-  onInit(boardPoints: number[][], _agentCount: number, _totalTurn: number): void {
+  onInit(
+    boardPoints: number[][],
+    _agentCount: number,
+    _totalTurn: number,
+  ): void {
     const w = boardPoints[0].length;
     const h = boardPoints.length;
 
@@ -16,7 +19,12 @@ export class Kacom extends Algorithm {
     for (let i = h - 2; i >= 1; i--) this.line.push([0, i]);
   }
 
-  onTurn(_field: Field[][], _playerNumber: number, agents: AgentPos[], _turn: number): ActionPost[] {
+  onTurn(
+    _field: Field[][],
+    _playerNumber: number,
+    agents: AgentPos[],
+    _turn: number,
+  ): ActionPost[] {
     const actions: ActionPost[] = [];
     for (let i = 0; i < agents.length; i++) {
       const agent = agents[i];
@@ -27,7 +35,7 @@ export class Kacom extends Algorithm {
           agentId: i,
           type: "PUT",
           x: p[0],
-          y: p[1]
+          y: p[1],
         });
       } else {
         const n = this.line.findIndex((p) =>
@@ -39,7 +47,7 @@ export class Kacom extends Algorithm {
             agentId: i,
             type: "MOVE",
             x: next[0],
-            y: next[1]
+            y: next[1],
           });
         }
       }
@@ -52,6 +60,6 @@ if (import.meta.main) {
   const a = new Kacom();
   a.match({
     name: "kacom",
-    spec: "kacom"
+    spec: "kacom",
   });
 }
