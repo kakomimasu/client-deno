@@ -25,7 +25,6 @@ abstract class Algorithm {
     let info: Game | null | undefined = await kc.waitMatching();
     const ac = kc.getAgentCount();
     const points = kc.getPoints();
-    console.log("ac ", ac, " points ", points);
     if (ac === undefined || points === undefined) {
       return;
     }
