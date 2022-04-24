@@ -1,8 +1,11 @@
 // だいたい点数の高い順にデタラメに置き、デタラメに動くアルゴリズム
-import { Algorithm } from "./algorithm.js";
+import { ActionPost, AgentPos, Algorithm, Field } from "./algorithm.ts";
+import { DIR, Pnt, rnd, sortByPoint } from "./client_util.ts";
 
 export class ClientA1 extends Algorithm {
-  onInit(boardPoints, _agentNum, _turnNum) {
+  private pntall: Pnt[] = [];
+
+  onInit(boardPoints: number[][], _agentCount: number, _totalTurn: number) {
     const w = boardPoints[0].length;
     const h = boardPoints.length;
 
@@ -13,44 +16,40 @@ export class ClientA1 extends Algorithm {
         this.pntall.push({ x: j, y: i, point: boardPoints[i][j] });
       }
     }
-    this.sortByPoint(this.pntall);
+    sortByPoint(this.pntall);
   }
 
-  onTurn(_field, _pid, agents, _turn) {
+  onTurn(
+    _field: Field[][],
+    _playerNumber: number,
+    agents: AgentPos[],
+    _turn: number,
+  ): ActionPost[] {
     // ランダムにずらしつつ置けるだけおく
     // 置いたものはランダムに8方向動かす
-    const actions = [];
-    const offset = this.rnd(agents.length);
+    const actions: ActionPost[] = [];
+    const offset = rnd(agents.length);
     for (let i = 0; i < agents.length; i++) {
       const agent = agents[i];
       if (agent.x === -1) {
         const p = this.pntall[i + offset];
-        actions.push([i, "PUT", p.x, p.y]);
+        actions.push({
+          agentId: i,
+          type: "PUT",
+          x: p.x,
+          y: p.y,
+        });
       } else {
-        const [dx, dy] = this.DIR[this.rnd(8)];
-        actions.push([i, "MOVE", agent.x + dx, agent.y + dy]);
+        const [dx, dy] = DIR[rnd(8)];
+        actions.push({
+          agentId: i,
+          type: "MOVE",
+          x: agent.x + dx,
+          y: agent.y + dy,
+        });
       }
     }
     return actions;
-  }
-
-  sortByPoint(p) {
-    p.sort((a, b) => b.point - a.point);
-  }
-
-  DIR = [
-    [0, -1],
-    [1, -1],
-    [1, 0],
-    [1, 1],
-    [0, 1],
-    [-1, 1],
-    [-1, 0],
-    [-1, -1],
-  ];
-
-  rnd(n) {
-    return Math.floor(Math.random() * n); // MT is better
   }
 }
 
@@ -58,6 +57,6 @@ if (import.meta.main) {
   const a = new ClientA1();
   a.match({
     name: "AI-1",
-    spec: ""
+    spec: "",
   });
 }

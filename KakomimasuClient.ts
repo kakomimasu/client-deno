@@ -1,11 +1,29 @@
-import { Action, args, cl, diffTime, sleep } from "./client_util.js";
+import { Action, args, cl, diffTime, sleep } from "./client_util.ts";
+import { ActionPost, ApiClient, dotenv, Game, MatchReq } from "./deps.ts";
 
-import { ApiClient, dotenv } from "./deps.js";
+type Field = {
+  type: 0 | 1;
+  pid: number | null;
+  point: number;
+  x: number;
+  y: number;
+  agentPid: number;
+};
 
 class KakomimasuClient {
+  private name?: string;
+  private spec?: string;
+  private bearerToken?: string;
+  private gameId?: string;
+  private pic?: string;
+  private pno?: number;
+  private gameInfo?: Game;
+  private field?: Field[][];
+  private log?: Game[];
+
   apiClient = new ApiClient("https://api.kakomimasu.com");
 
-  constructor(name, spec) {
+  constructor(name?: string, spec?: string) {
     dotenv.config();
     this.name = name || Deno.env.get("name");
     this.spec = spec || Deno.env.get("spec");
@@ -15,7 +33,8 @@ class KakomimasuClient {
     else if (args.host) this.setServerHost(args.host);
     else this.setServerHost(Deno.env.get("host"));
   }
-  setServerHost(host) {
+
+  setServerHost(host?: string) {
     if (host) {
       if (host.endsWith("/")) {
         host = host.substring(0, host.length - 1);
@@ -24,23 +43,15 @@ class KakomimasuClient {
       this.apiClient = new ApiClient(host);
     }
   }
-  readGameId() {
-    cl("入室するゲームIDを入力してください。入力しないとランダムマッチを行います。");
-    const stdinArray = new Uint8Array(37);
-    Deno.stdin.readSync(stdinArray);
-    const gameId = new TextDecoder().decode(stdinArray).match(/\S*/)[0];
-    if (gameId !== "") {
-      this.gameId = gameId;
-    }
-  }
+
   async waitMatching() { // GameInfo
-    const matchParam = {
+    const matchParam: MatchReq = {
       spec: this.spec,
     };
     // Bearerがない場合はゲストで参加
     if (!this.bearerToken) {
       matchParam.guest = {
-        name: this.name
+        name: this.name ?? "ゲスト",
       };
     }
     if (args.useAi) {
@@ -53,19 +64,19 @@ class KakomimasuClient {
       matchParam.gameId = args.gameId;
     }
     //cl(matchParam);
-    const MatchRes = await this.apiClient.match(
+    const matchRes = await this.apiClient.match(
       matchParam,
       `Bearer ${this.bearerToken}`,
     );
-    this.pic = MatchRes.data.pic;
     //cl(MatchRes);
-    if (MatchRes.success) {
-      const matchGame = MatchRes.data;
+    if (matchRes.success) {
+      const matchGame = matchRes.data;
+      this.pic = matchRes.data.pic;
       this.gameId = matchGame.gameId;
       this.pno = matchGame.index;
       cl("playerid", matchGame, this.pno);
     } else {
-      console.log(MatchRes.data);
+      console.log(matchRes.data);
       throw Error("Match Error");
     }
     do {
@@ -88,10 +99,15 @@ class KakomimasuClient {
   }
 
   getAgentCount() {
-    return this.gameInfo.players[this.pno].agents.length;
+    if (this.gameInfo?.players && this.pno !== undefined) {
+      return this.gameInfo.players[this.pno].agents.length;
+    }
   }
 
   getPoints() {
+    if (!this.gameInfo || !this.gameInfo.board) {
+      return undefined;
+    }
     const w = this.gameInfo.board.width;
     const h = this.gameInfo.board.height;
     const p = this.gameInfo.board.points;
@@ -107,11 +123,17 @@ class KakomimasuClient {
   }
 
   _makeField() {
+    if (!this.gameInfo || !this.gameInfo.board) {
+      return;
+    }
     const w = this.gameInfo.board.width;
     const h = this.gameInfo.board.height;
     const p = this.gameInfo.board.points;
     const res = [];
     const tiled = this.gameInfo.tiled;
+    if (!tiled) {
+      return;
+    }
     for (let i = 0; i < h; i++) {
       const row = [];
       for (let j = 0; j < w; j++) {
@@ -127,11 +149,17 @@ class KakomimasuClient {
   }
 
   _updateField() {
+    if (!this.gameInfo || !this.gameInfo.board || !this.field) {
+      return;
+    }
     const w = this.gameInfo.board.width;
     const h = this.gameInfo.board.height;
     const tiled = this.gameInfo.tiled;
+    if (!tiled) {
+      return;
+    }
 
-    const agentXYs = {};
+    const agentXYs: Record<string, number> = {};
     for (let i = 0; i < this.gameInfo.players.length; i++) {
       const player = this.gameInfo.players[i];
       for (const agent of player.agents) {
@@ -145,8 +173,8 @@ class KakomimasuClient {
       for (let j = 0; j < w; j++) {
         const f = this.field[i][j];
         const idx = i * w + j;
-        f.type = tiled[idx][0];
-        f.pid = tiled[idx][1];
+        f.type = tiled[idx].type;
+        f.pid = tiled[idx].player;
         const agentPid = agentXYs[j + "," + i];
         f.agentPid = (agentPid != undefined) ? agentPid : -1;
       }
@@ -158,21 +186,31 @@ class KakomimasuClient {
   }
 
   async waitStart() { // GameInfo
+    if (
+      !this.gameInfo || !this.gameInfo.board ||
+      !this.gameInfo.startedAtUnixTime || !this.gameId
+    ) {
+      return;
+    }
+    const board = this.gameInfo.board;
     await sleep(diffTime(this.gameInfo.startedAtUnixTime));
     const res = await this.apiClient.getMatch(this.gameId);
     if (res.success) this.gameInfo = res.data;
     else throw Error("Get Match Error");
     cl(this.gameInfo);
     this.log = [this.gameInfo];
-    cl("totalTurn", this.gameInfo.board.nTurn);
+    cl("totalTurn", board.nTurn);
     this._makeField();
     return this.gameInfo;
   }
 
-  async setActions(actions) { // void
+  async setActions(actions: ActionPost[]) { // void
+    if (!this.gameId || !this.pic) {
+      return;
+    }
     const res = await this.apiClient.setAction(
       this.gameId,
-      { actions, index: this.pno },
+      { actions },
       this.pic,
     );
     //console.log("setActions", res);
@@ -180,12 +218,15 @@ class KakomimasuClient {
   }
 
   async waitNextTurn() { // GameInfo? (null if end)
+    if (!this.log || !this.gameInfo || !this.gameId) {
+      return;
+    }
     if (this.gameInfo.nextTurnUnixTime) {
       const bknext = this.gameInfo.nextTurnUnixTime;
       cl("nextTurnUnixTime", bknext);
       await sleep(diffTime(bknext));
 
-      for (; ;) {
+      for (;;) {
         const res = await this.apiClient.getMatch(this.gameId);
         if (res.success) this.gameInfo = res.data;
         else throw Error("Get Match Error");
@@ -205,6 +246,9 @@ class KakomimasuClient {
   }
 
   saveLog() {
+    if (!this.gameInfo || !this.gameInfo.gameId) {
+      return;
+    }
     if (!args.nolog) {
       try {
         Deno.mkdirSync("log");
@@ -230,3 +274,4 @@ const DIR = [
 ];
 
 export { Action, args, cl, DIR, KakomimasuClient };
+export type { Field };

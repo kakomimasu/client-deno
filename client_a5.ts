@@ -1,8 +1,15 @@
 // だいたい点数の高い順に置き、点数の高い順に壊しながら動くアルゴリズム （KakomimasuClient版）
-import { Algorithm } from "./algorithm.js";
+import { ActionPost, AgentPos, Algorithm, Field } from "./algorithm.ts";
+import { DIR, Pnt, rnd, sortByPoint } from "./client_util.ts";
 
 export class ClientA5 extends Algorithm {
-  onInit(boardPoints, _agentNum, _turnNum) {
+  private pntall: Pnt[] = [];
+
+  onInit(
+    boardPoints: number[][],
+    _agentCount: number,
+    _totalTurn: number,
+  ): void {
     const w = boardPoints[0].length;
     const h = boardPoints.length;
 
@@ -13,17 +20,22 @@ export class ClientA5 extends Algorithm {
         this.pntall.push({ x: j, y: i, point: boardPoints[i][j] });
       }
     }
-    this.sortByPoint(this.pntall);
+    sortByPoint(this.pntall);
   }
 
-  onTurn(field, pid, agents, _turn) {
+  onTurn(
+    field: Field[][],
+    playerNumber: number,
+    agents: AgentPos[],
+    _turn: number,
+  ): ActionPost[] {
     const w = field[0].length;
     const h = field.length;
 
-    const actions = [];
-    const offset = this.rnd(agents.length);
-    const poschk = []; // 動く予定の場所
-    const checkFree = (x, y) => {
+    const actions: ActionPost[] = [];
+    const offset = rnd(agents.length);
+    const poschk: { x: number; y: number }[] = []; // 動く予定の場所
+    const checkFree = (x: number, y: number) => {
       for (let i = 0; i < poschk.length; i++) {
         const p = poschk[i];
         if (p.x === x && p.y === y) {
@@ -36,17 +48,23 @@ export class ClientA5 extends Algorithm {
       const agent = agents[i];
       if (agent.x === -1) { // 置く前?
         const p = this.pntall[i + offset];
-        actions.push([i, "PUT", p.x, p.y]);
+        actions.push({
+          agentId: i,
+          type: "PUT",
+          x: p.x,
+          y: p.y,
+        });
       } else {
         const dirall = [];
-        for (const [dx, dy] of this.DIR) {
+        for (const [dx, dy] of DIR) {
           const x = agent.x + dx;
           const y = agent.y + dy;
           if (x >= 0 && x < w && y >= 0 && y < h && checkFree(x, y)) {
             const f = field[y][x];
             if (f.point > 0) { // プラスのときだけ
               if (
-                f.type === 0 && f.pid !== -1 && f.pid !== pid && f.point > 0
+                f.type === 0 && f.pid !== -1 && f.pid !== playerNumber &&
+                f.point > 0
               ) { // 敵土地、おいしい！
                 dirall.push(
                   { x, y, type: f.type, pid: f.pid, point: f.point + 10 },
@@ -55,20 +73,30 @@ export class ClientA5 extends Algorithm {
                 dirall.push(
                   { x, y, type: f.type, pid: f.pid, point: f.point + 5 },
                 );
-              } else if (f.type === 1 && f.pid !== pid) { // 敵壁
+              } else if (f.type === 1 && f.pid !== playerNumber) { // 敵壁
                 dirall.push({ x, y, type: f.type, pid: f.pid, point: f.point });
               }
             }
           }
         }
         if (dirall.length > 0) { //  && this.rnd(5) > 0) { // 膠着状態を防ぐために20%で回避 → 弱くなった
-          this.sortByPoint(dirall);
+          sortByPoint(dirall);
           const p = dirall[0];
           if (p.type === 0 || p.pid === -1) {
-            actions.push([i, "MOVE", p.x, p.y]);
+            actions.push({
+              agentId: i,
+              type: "MOVE",
+              x: p.x,
+              y: p.y,
+            });
             poschk.push({ x: p.x, y: p.y });
           } else {
-            actions.push([i, "REMOVE", p.x, p.y]);
+            actions.push({
+              agentId: i,
+              type: "REMOVE",
+              x: p.x,
+              y: p.y,
+            });
           }
           poschk.push({ x: agent.x, y: agent.y });
         } else {
@@ -87,7 +115,7 @@ export class ClientA5 extends Algorithm {
             }
           }
           if (target) {
-            const sgn = (n) => {
+            const sgn = (n: number) => {
               if (n < 0) return -1;
               if (n > 0) return 1;
               return 0;
@@ -96,22 +124,37 @@ export class ClientA5 extends Algorithm {
             const y2 = agent.y + sgn(target.y - agent.y);
             const p = field[y2][x2];
             if (p.type === 0 || p.pid === -1) {
-              actions.push([i, "MOVE", x2, y2]);
+              actions.push({
+                agentId: i,
+                type: "MOVE",
+                x: x2,
+                y: y2,
+              });
               poschk.push({ x: x2, y: y2 });
             } else {
-              actions.push([i, "REMOVE", x2, y2]);
+              actions.push({
+                agentId: i,
+                type: "REMOVE",
+                x: x2,
+                y: y2,
+              });
             }
             poschk.push({ x: agent.x, y: agent.y });
           } else {
             // 空いているところなければランダム
             for (;;) {
-              const [dx, dy] = this.DIR[this.rnd(8)];
+              const [dx, dy] = DIR[rnd(8)];
               const x = agent.x + dx;
               const y = agent.y + dy;
               if (x < 0 || x >= w || y < 0 || y >= w) {
                 continue;
               }
-              actions.push([i, "MOVE", x, y]);
+              actions.push({
+                agentId: i,
+                type: "MOVE",
+                x: x,
+                y: y,
+              });
               poschk.push({ x, y });
               break;
             }
@@ -121,31 +164,12 @@ export class ClientA5 extends Algorithm {
     }
     return actions;
   }
-
-  sortByPoint(p) {
-    p.sort((a, b) => b.point - a.point);
-  }
-
-  DIR = [
-    [0, -1],
-    [1, -1],
-    [1, 0],
-    [1, 1],
-    [0, 1],
-    [-1, 1],
-    [-1, 0],
-    [-1, -1],
-  ];
-
-  rnd(n) {
-    return Math.floor(Math.random() * n); // MT is better
-  }
 }
 
 if (import.meta.main) {
   const a = new ClientA5();
   a.match({
     name: "AI-5",
-    spec: "破壊者"
+    spec: "破壊者",
   });
 }
