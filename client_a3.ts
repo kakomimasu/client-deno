@@ -2,7 +2,7 @@
 import { ActionPost, KakomimasuClient } from "./KakomimasuClient.ts";
 import { DIR, Pnt, rnd, sortByPoint } from "./client_util.ts";
 
-export const client = new KakomimasuClient("AI-3", "デタラメ");
+export const client = new KakomimasuClient({ name: "AI-3", spec: "デタラメ" });
 const pntall: Pnt[] = [];
 
 client.oninit = (boardPoints, _agentCount, _totalTurn) => {

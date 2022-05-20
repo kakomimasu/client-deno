@@ -1,11 +1,4 @@
-import { ActionPost, ApiClient, dotenv, Game, MatchReq } from "./deps.ts";
-import { parse } from "./deps.ts";
-
-const args = parse(Deno.args);
-
-const cl = (...param: Parameters<typeof console.log>) => {
-  if (!args.nolog) console.log(...param);
-};
+import { ActionPost, ApiClient, Game, MatchReq } from "./deps.ts";
 
 function sleep(msec: number) {
   return new Promise<void>((resolve) => {
@@ -15,7 +8,7 @@ function sleep(msec: number) {
 
 function diffTime(unixTime: number) {
   const dt = unixTime * 1000 - new Date().getTime();
-  cl("diffTime", dt);
+  console.log("diffTime", dt);
   return dt;
 }
 
@@ -37,6 +30,8 @@ class KakomimasuClient {
   private name?: string;
   private spec?: string;
   private bearerToken?: string;
+  private useAi?: string;
+  private aiBoard?: string;
   private gameId?: string;
   private pic?: string;
   private pno?: number;
@@ -44,27 +39,43 @@ class KakomimasuClient {
   private field?: Field[][];
   private log?: Game[];
 
-  apiClient = new ApiClient("https://api.kakomimasu.com");
+  apiClient: ApiClient;
 
-  constructor(name?: string, spec?: string) {
-    dotenv.config();
-    this.name = name || Deno.env.get("name");
-    this.spec = spec || Deno.env.get("spec");
-    if (!args.aiOnly) this.bearerToken = Deno.env.get("bearerToken");
-    console.log(args.local);
-    if (args.local) this.setServerHost("http://localhost:8880");
-    else if (args.host) this.setServerHost(args.host);
-    else this.setServerHost(Deno.env.get("host"));
-  }
-
-  setServerHost(host?: string) {
-    if (host) {
+  constructor(
+    param: {
+      name: string;
+      spec?: string;
+      host?: string;
+      useAi?: string;
+      aiBoard?: string;
+      gameId?: string;
+    } | {
+      bearerToken: string;
+      host?: string;
+      useAi?: string;
+      aiBoard?: string;
+      gameId?: string;
+    },
+  ) {
+    if ("bearerToken" in param) {
+      this.bearerToken = param.bearerToken;
+    } else {
+      this.name = param.name;
+      this.spec = param.spec;
+    }
+    if (param.host === undefined) {
+      this.apiClient = new ApiClient("https://api.kakomimasu.com");
+    } else {
+      let host = param.host;
       if (host.endsWith("/")) {
         host = host.substring(0, host.length - 1);
       }
       //setHost(`${host}/api`);
       this.apiClient = new ApiClient(host);
     }
+    this.useAi = param.useAi;
+    this.aiBoard = param.aiBoard;
+    this.gameId = param.gameId;
   }
 
   async waitMatching() { // GameInfo
@@ -77,27 +88,27 @@ class KakomimasuClient {
         name: this.name ?? "ゲスト",
       };
     }
-    if (args.useAi) {
+    if (this.useAi) {
       matchParam.useAi = true;
       matchParam.aiOption = {
-        aiName: args.useAi,
-        boardName: args.aiBoard,
+        aiName: this.useAi,
+        boardName: this.aiBoard,
       };
-    } else if (args.gameId) {
-      matchParam.gameId = args.gameId;
+    } else if (this.gameId) {
+      matchParam.gameId = this.gameId;
     }
-    //cl(matchParam);
+    //console.log(matchParam);
     const matchRes = await this.apiClient.match(
       matchParam,
       `Bearer ${this.bearerToken}`,
     );
-    //cl(MatchRes);
+    //console.log(MatchRes);
     if (matchRes.success) {
       const matchGame = matchRes.data;
       this.pic = matchRes.data.pic;
       this.gameId = matchGame.gameId;
       this.pno = matchGame.index;
-      cl("playerid", matchGame, this.pno);
+      console.log("playerid", matchGame, this.pno);
     } else {
       console.log(matchRes.data);
       throw Error("Match Error");
@@ -109,8 +120,8 @@ class KakomimasuClient {
       await sleep(100);
     } while (this.gameInfo.startedAtUnixTime === null);
 
-    cl(this.gameInfo);
-    cl(
+    console.log(this.gameInfo);
+    console.log(
       "ゲーム開始時間：",
       new Date(this.gameInfo.startedAtUnixTime * 1000).toLocaleString("ja-JP"),
     );
@@ -220,9 +231,9 @@ class KakomimasuClient {
     const res = await this.apiClient.getMatch(this.gameId);
     if (res.success) this.gameInfo = res.data;
     else throw Error("Get Match Error");
-    cl(this.gameInfo);
+    console.log(this.gameInfo);
     this.log = [this.gameInfo];
-    cl("totalTurn", board.nTurn);
+    console.log("totalTurn", board.nTurn);
     this._makeField();
     return this.gameInfo;
   }
@@ -246,7 +257,7 @@ class KakomimasuClient {
     }
     if (this.gameInfo.nextTurnUnixTime) {
       const bknext = this.gameInfo.nextTurnUnixTime;
-      cl("nextTurnUnixTime", bknext);
+      console.log("nextTurnUnixTime", bknext);
       await sleep(diffTime(bknext));
 
       for (;;) {
@@ -259,28 +270,12 @@ class KakomimasuClient {
         await sleep(100);
       }
     } else {
-      this.saveLog();
       return null;
     }
     this.log.push(this.gameInfo);
-    cl("turn", this.gameInfo.turn);
+    console.log("turn", this.gameInfo.turn);
     this._updateField();
     return this.gameInfo;
-  }
-
-  saveLog() {
-    if (!this.gameInfo || !this.gameInfo.gameId) {
-      return;
-    }
-    if (!args.nolog) {
-      try {
-        Deno.mkdirSync("log");
-      } catch (_e) {
-        //
-      }
-      const fname = `log/${this.gameInfo.gameId}-player${this.pno}.log`;
-      Deno.writeTextFileSync(fname, JSON.stringify(this.log, null, 2));
-    }
   }
 
   public oninit: (
@@ -298,7 +293,7 @@ class KakomimasuClient {
   };
 
   async match() {
-    cl("match start");
+    console.log("match start");
     let info: Game | null | undefined = await this.waitMatching();
     const ac = this.getAgentCount();
     const points = this.getPoints();
@@ -325,7 +320,7 @@ class KakomimasuClient {
       }
       info = await this.waitNextTurn();
     }
-    cl("match end");
+    console.log("match end");
   }
 }
 

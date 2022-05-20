@@ -1,7 +1,7 @@
 // 大きく囲む戦略
 import { ActionPost, KakomimasuClient } from "./KakomimasuClient.ts";
 
-export const client = new KakomimasuClient("kacom", "kacom");
+export const client = new KakomimasuClient({ name: "kacom", spec: "kacom" });
 const line: number[][] = [];
 
 client.oninit = (boardPoints, _agentCount, _totalTurn) => {
