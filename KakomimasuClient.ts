@@ -1,5 +1,23 @@
-import { Action, args, cl, diffTime, sleep } from "./client_util.ts";
 import { ActionPost, ApiClient, dotenv, Game, MatchReq } from "./deps.ts";
+import { parse } from "./deps.ts";
+
+const args = parse(Deno.args);
+
+const cl = (...param: Parameters<typeof console.log>) => {
+  if (!args.nolog) console.log(...param);
+};
+
+function sleep(msec: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(() => resolve(), msec);
+  });
+}
+
+function diffTime(unixTime: number) {
+  const dt = unixTime * 1000 - new Date().getTime();
+  cl("diffTime", dt);
+  return dt;
+}
 
 type Field = {
   type: 0 | 1;
@@ -8,6 +26,11 @@ type Field = {
   x: number;
   y: number;
   agentPid: number;
+};
+
+type AgentPos = {
+  x: number;
+  y: number;
 };
 
 class KakomimasuClient {
@@ -259,19 +282,52 @@ class KakomimasuClient {
       Deno.writeTextFileSync(fname, JSON.stringify(this.log, null, 2));
     }
   }
+
+  public oninit: (
+    boardPoints: number[][],
+    agentCount: number,
+    totalTurn: number,
+  ) => void = () => {};
+  public onturn: (
+    field: Field[][],
+    playerNumber: number,
+    agents: AgentPos[],
+    turn: number,
+  ) => ActionPost[] = () => {
+    return [];
+  };
+
+  async match() {
+    cl("match start");
+    let info: Game | null | undefined = await this.waitMatching();
+    const ac = this.getAgentCount();
+    const points = this.getPoints();
+    if (ac === undefined || points === undefined) {
+      return;
+    }
+    this.oninit(
+      points,
+      ac,
+      info.totalTurn,
+    );
+    info = await this.waitStart();
+    while (info) {
+      const field = this.getField();
+      const pn = this.getPlayerNumber();
+      if (field && pn !== undefined) {
+        const actions = this.onturn(
+          field,
+          pn,
+          info.players[pn].agents,
+          info.turn,
+        );
+        this.setActions(actions);
+      }
+      info = await this.waitNextTurn();
+    }
+    cl("match end");
+  }
 }
 
-// 8方向、上から時計回り
-const DIR = [
-  [0, -1],
-  [1, -1],
-  [1, 0],
-  [1, 1],
-  [0, 1],
-  [-1, 1],
-  [-1, 0],
-  [-1, -1],
-];
-
-export { Action, args, cl, DIR, KakomimasuClient };
-export type { Field };
+export { KakomimasuClient };
+export type { ActionPost, Field };
