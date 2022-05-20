@@ -1,0 +1,7 @@
+{
+  "lint": {
+    "files": {
+      "exclude": ["sample.ts", "sample2.ts"]
+    }
+  }
+}
