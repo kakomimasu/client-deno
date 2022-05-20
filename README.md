@@ -41,4 +41,3 @@ $ deno run -A client_a1.ts
 ```:.env
 BEARER_TOKEN=c61cc5c6-ba12-4349-9e6a-9e05d6665541
 ```
-
