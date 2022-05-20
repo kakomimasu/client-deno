@@ -1,3 +1,9 @@
+/**
+ * .envとコマンドライン引数を使用した例
+ * @example
+ * deno run -A sample2.ts c61cc5c6-ba12-4349-9e6a-9e05d6665541
+ */
+
 import { config } from "https://deno.land/x/dotenv@v3.2.0/mod.ts";
 
 import { ActionPost, KakomimasuClient } from "./KakomimasuClient.ts";

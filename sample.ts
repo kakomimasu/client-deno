@@ -1,3 +1,9 @@
+/**
+ * 例
+ * @example
+ * deno run -A sample.ts
+ */
+
 import { ActionPost, KakomimasuClient } from "./KakomimasuClient.ts";
 
 export const client = new KakomimasuClient({ name: "sample", spec: "test" });
