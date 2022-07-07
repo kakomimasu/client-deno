@@ -7,6 +7,7 @@ function sleep(msec: number) {
 }
 
 function diffTime(unixTime: number) {
+  console.log(new Date(), unixTime, new Date(unixTime * 1000));
   const dt = unixTime * 1000 - new Date().getTime();
   console.log("diffTime", dt);
   return dt;
@@ -255,27 +256,27 @@ class KakomimasuClient {
     if (!this.log || !this.gameInfo || !this.gameId) {
       return;
     }
-    if (this.gameInfo.nextTurnUnixTime) {
-      const bknext = this.gameInfo.nextTurnUnixTime;
-      console.log("nextTurnUnixTime", bknext);
-      await sleep(diffTime(bknext));
+    if (this.gameInfo.startedAtUnixTime === null) return;
+    const nextTurnUnixTime = this.gameInfo.startedAtUnixTime +
+      (this.gameInfo.operationTime + this.gameInfo.transitionTime) *
+        this.gameInfo.turn;
+    console.log("nextTurnUnixTime", nextTurnUnixTime);
+    await sleep(diffTime(nextTurnUnixTime));
 
-      for (;;) {
-        const res = await this.apiClient.getMatch(this.gameId);
-        if (res.success) this.gameInfo = res.data;
-        else throw Error("Get Match Error");
-        if (this.gameInfo.nextTurnUnixTime !== bknext) {
-          break;
-        }
-        await sleep(100);
+    for (;;) {
+      const res = await this.apiClient.getMatch(this.gameId);
+      if (res.success) {
+        this.gameInfo = res.data;
+        break;
       }
-    } else {
-      return null;
+      await sleep(100);
     }
+
     this.log.push(this.gameInfo);
     console.log("turn", this.gameInfo.turn);
     this._updateField();
-    return this.gameInfo;
+    if (this.gameInfo.gaming) return this.gameInfo;
+    else return null;
   }
 
   public oninit: (
