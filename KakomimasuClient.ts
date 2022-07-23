@@ -258,7 +258,7 @@ class KakomimasuClient {
     }
     if (this.gameInfo.startedAtUnixTime === null) return;
     const nextTurnUnixTime = this.gameInfo.startedAtUnixTime +
-      (this.gameInfo.operationTime + this.gameInfo.transitionTime) *
+      (this.gameInfo.operationSec + this.gameInfo.transitionSec) *
         this.gameInfo.turn;
     console.log("nextTurnUnixTime", nextTurnUnixTime);
     await sleep(diffTime(nextTurnUnixTime));
