@@ -3,4 +3,5 @@ export {
   default as ApiClient,
   type Game,
   type MatchReq,
-} from "https://raw.githubusercontent.com/kakomimasu/client-js/v1.0.0-beta.10/mod.ts";
+  // } from "../client-js/mod.ts";
+} from "https://raw.githubusercontent.com/kakomimasu/client-js/v1.0.0-beta.11/mod.ts";
