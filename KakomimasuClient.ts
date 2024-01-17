@@ -1,4 +1,13 @@
-import { ActionPost, ApiClient, Game, MatchReq } from "./deps.ts";
+import {
+  type ActionMatchReq,
+  type ApiRes,
+  default as ApiClient,
+  type Game,
+  type JoinAiMatchReq,
+  type JoinMatchReqBase,
+  type JoinMatchRes,
+  // } from "../client-js/deno/mod.ts";
+} from "https://raw.githubusercontent.com/kakomimasu/client-js/v1.0.0-beta.13/deno/mod.ts";
 
 function sleep(msec: number) {
   return new Promise<void>((resolve) => {
@@ -31,7 +40,7 @@ class KakomimasuClient {
   private name?: string;
   private spec?: string;
   private bearerToken?: string;
-  private useAi?: string;
+  private aiName?: JoinAiMatchReq["aiName"];
   private aiBoard?: string;
   private gameId?: string;
   private pic?: string;
@@ -43,20 +52,14 @@ class KakomimasuClient {
   apiClient: ApiClient;
 
   constructor(
-    param: {
-      name: string;
-      spec?: string;
-      host?: string;
-      useAi?: string;
-      aiBoard?: string;
-      gameId?: string;
-    } | {
-      bearerToken: string;
-      host?: string;
-      useAi?: string;
-      aiBoard?: string;
-      gameId?: string;
-    },
+    param:
+      & {
+        host?: string;
+        aiName?: JoinAiMatchReq["aiName"];
+        aiBoard?: string;
+        gameId?: string;
+      }
+      & ({ name: string; spec?: string } | { bearerToken: string }),
   ) {
     if ("bearerToken" in param) {
       this.bearerToken = param.bearerToken;
@@ -74,35 +77,44 @@ class KakomimasuClient {
       //setHost(`${host}/api`);
       this.apiClient = new ApiClient(host);
     }
-    this.useAi = param.useAi;
+    this.aiName = param.aiName;
     this.aiBoard = param.aiBoard;
     this.gameId = param.gameId;
   }
 
   async waitMatching() { // GameInfo
-    const matchParam: MatchReq = {
+    const matchParam: JoinMatchReqBase = {
       spec: this.spec,
     };
     // Bearerがない場合はゲストで参加
     if (!this.bearerToken) {
-      matchParam.guest = {
-        name: this.name ?? "ゲスト",
-      };
+      matchParam.guestName = this.name ?? "ゲスト";
     }
-    if (this.useAi) {
-      matchParam.useAi = true;
-      matchParam.aiOption = {
-        aiName: this.useAi,
-        boardName: this.aiBoard,
-      };
+    let matchRes: ApiRes<JoinMatchRes>;
+    if (this.aiName) {
+      // matchParam.useAi = true;
+      // matchParam.aiOption = {
+      //   aiName: this.useAi,
+      //   boardName: this.aiBoard,
+      // };
+      matchRes = await this.apiClient.joinAiMatch(
+        { ...matchParam, aiName: this.aiName, boardName: this.aiBoard },
+        `Bearer ${this.bearerToken}`,
+      );
     } else if (this.gameId) {
-      matchParam.gameId = this.gameId;
+      // matchParam.gameId = this.gameId;
+      matchRes = await this.apiClient.joinGameIdMatch(
+        this.gameId,
+        matchParam,
+        `Bearer ${this.bearerToken}`,
+      );
+    } else {
+      //console.log(matchParam);
+      matchRes = await this.apiClient.joinFreeMatch(
+        matchParam,
+        `Bearer ${this.bearerToken}`,
+      );
     }
-    //console.log(matchParam);
-    const matchRes = await this.apiClient.match(
-      matchParam,
-      `Bearer ${this.bearerToken}`,
-    );
     //console.log(MatchRes);
     if (matchRes.success) {
       const matchGame = matchRes.data;
@@ -140,12 +152,12 @@ class KakomimasuClient {
   }
 
   getPoints() {
-    if (!this.gameInfo || !this.gameInfo.board) {
+    if (!this.gameInfo?.field) {
       return undefined;
     }
-    const w = this.gameInfo.board.width;
-    const h = this.gameInfo.board.height;
-    const p = this.gameInfo.board.points;
+    const w = this.gameInfo.field.width;
+    const h = this.gameInfo.field.height;
+    const p = this.gameInfo.field.points;
     const res = [];
     for (let i = 0; i < h; i++) {
       const row = [];
@@ -158,15 +170,15 @@ class KakomimasuClient {
   }
 
   _makeField() {
-    if (!this.gameInfo || !this.gameInfo.board) {
+    if (!this.gameInfo?.field) {
       return;
     }
-    const w = this.gameInfo.board.width;
-    const h = this.gameInfo.board.height;
-    const p = this.gameInfo.board.points;
+    const w = this.gameInfo.field.width;
+    const h = this.gameInfo.field.height;
+    const p = this.gameInfo.field.points;
     const res = [];
-    const tiled = this.gameInfo.tiled;
-    if (!tiled) {
+    const tiles = this.gameInfo.field.tiles;
+    if (!tiles) {
       return;
     }
     for (let i = 0; i < h; i++) {
@@ -174,8 +186,8 @@ class KakomimasuClient {
       for (let j = 0; j < w; j++) {
         const idx = i * w + j;
         const point = p[idx];
-        const type = tiled[idx].type;
-        const pid = tiled[idx].player;
+        const type = tiles[idx].type;
+        const pid = tiles[idx].player;
         row.push({ type, pid, point, x: j, y: i, agentPid: -1 });
       }
       res.push(row);
@@ -184,13 +196,13 @@ class KakomimasuClient {
   }
 
   _updateField() {
-    if (!this.gameInfo || !this.gameInfo.board || !this.field) {
+    if (!this.gameInfo?.field || !this.field) {
       return;
     }
-    const w = this.gameInfo.board.width;
-    const h = this.gameInfo.board.height;
-    const tiled = this.gameInfo.tiled;
-    if (!tiled) {
+    const w = this.gameInfo.field.width;
+    const h = this.gameInfo.field.height;
+    const tiles = this.gameInfo.field.tiles;
+    if (!tiles) {
       return;
     }
 
@@ -208,8 +220,8 @@ class KakomimasuClient {
       for (let j = 0; j < w; j++) {
         const f = this.field[i][j];
         const idx = i * w + j;
-        f.type = tiled[idx].type;
-        f.pid = tiled[idx].player;
+        f.type = tiles[idx].type;
+        f.pid = tiles[idx].player;
         const agentPid = agentXYs[j + "," + i];
         f.agentPid = (agentPid != undefined) ? agentPid : -1;
       }
@@ -221,25 +233,21 @@ class KakomimasuClient {
   }
 
   async waitStart() { // GameInfo
-    if (
-      !this.gameInfo || !this.gameInfo.board ||
-      !this.gameInfo.startedAtUnixTime || !this.gameId
-    ) {
+    if (!this.gameInfo || !this.gameInfo.startedAtUnixTime || !this.gameId) {
       return;
     }
-    const board = this.gameInfo.board;
     await sleep(diffTime(this.gameInfo.startedAtUnixTime));
     const res = await this.apiClient.getMatch(this.gameId);
     if (res.success) this.gameInfo = res.data;
     else throw Error("Get Match Error");
     console.log(this.gameInfo);
     this.log = [this.gameInfo];
-    console.log("totalTurn", board.nTurn);
+    console.log("totalTurn", this.gameInfo.totalTurn);
     this._makeField();
     return this.gameInfo;
   }
 
-  async setActions(actions: ActionPost[]) { // void
+  async setActions(actions: ActionMatchReq["actions"]) { // void
     if (!this.gameId || !this.pic) {
       return;
     }
@@ -275,7 +283,7 @@ class KakomimasuClient {
     this.log.push(this.gameInfo);
     console.log("turn", this.gameInfo.turn);
     this._updateField();
-    if (this.gameInfo.gaming) return this.gameInfo;
+    if (this.gameInfo.status === "gaming") return this.gameInfo;
     else return null;
   }
 
@@ -289,7 +297,7 @@ class KakomimasuClient {
     playerNumber: number,
     agents: AgentPos[],
     turn: number,
-  ) => ActionPost[] = () => {
+  ) => ActionMatchReq["actions"] = () => {
     return [];
   };
 
@@ -326,4 +334,5 @@ class KakomimasuClient {
 }
 
 export { KakomimasuClient };
-export type { ActionPost, Field };
+export type ActionPost = ActionMatchReq["actions"][number];
+export type { Field };
