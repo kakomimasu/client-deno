@@ -291,13 +291,13 @@ class KakomimasuClient {
     boardPoints: number[][],
     agentCount: number,
     totalTurn: number,
-  ) => void = () => {};
+  ) => void | Promise<void> = () => {};
   public onturn: (
     field: Field[][],
     playerNumber: number,
     agents: AgentPos[],
     turn: number,
-  ) => ActionMatchReq["actions"] = () => {
+  ) => ActionMatchReq["actions"] | Promise<ActionMatchReq["actions"]> = () => {
     return [];
   };
 
@@ -309,7 +309,7 @@ class KakomimasuClient {
     if (ac === undefined || points === undefined) {
       return;
     }
-    this.oninit(
+    await this.oninit(
       points,
       ac,
       info.totalTurn,
@@ -319,7 +319,7 @@ class KakomimasuClient {
       const field = this.getField();
       const pn = this.getPlayerNumber();
       if (field && pn !== undefined) {
-        const actions = this.onturn(
+        const actions = await this.onturn(
           field,
           pn,
           info.players[pn].agents,
