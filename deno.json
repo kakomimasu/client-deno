@@ -1,7 +1,6 @@
 {
+  "lock": false,
   "lint": {
-    "files": {
-      "exclude": ["sample.ts", "sample2.ts"]
-    }
+    "exclude": ["sample.ts", "sample2.ts"]
   }
 }
