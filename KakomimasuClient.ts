@@ -7,7 +7,7 @@ import {
   type JoinMatchReqBase,
   type JoinMatchRes,
   // } from "../client-js/deno/mod.ts";
-} from "https://raw.githubusercontent.com/kakomimasu/client-js/v1.0.0-beta.13/deno/mod.ts";
+} from "https://raw.githubusercontent.com/kakomimasu/client-js/v1.0.0-beta.14/deno/mod.ts";
 
 function sleep(msec: number) {
   return new Promise<void>((resolve) => {
@@ -36,12 +36,17 @@ type AgentPos = {
   y: number;
 };
 
+type MatchOptions =
+  | Omit<JoinAiMatchReq, "dryRun">
+  | { gameId: string }
+  // deno-lint-ignore ban-types
+  | {};
+
 class KakomimasuClient {
   private name?: string;
   private spec?: string;
   private bearerToken?: string;
-  private aiName?: JoinAiMatchReq["aiName"];
-  private aiBoard?: string;
+  private matchOptions: MatchOptions;
   private gameId?: string;
   private pic?: string;
   private pno?: number;
@@ -53,12 +58,13 @@ class KakomimasuClient {
 
   constructor(
     param:
+      // 共通のパラメータ
       & {
         host?: string;
-        aiName?: JoinAiMatchReq["aiName"];
-        aiBoard?: string;
-        gameId?: string;
       }
+      // 参加ゲームによるパラメータ
+      & MatchOptions
+      // 参加プレイヤーによるパラメータ
       & ({ name: string; spec?: string } | { bearerToken: string }),
   ) {
     if ("bearerToken" in param) {
@@ -77,9 +83,7 @@ class KakomimasuClient {
       //setHost(`${host}/api`);
       this.apiClient = new ApiClient(host);
     }
-    this.aiName = param.aiName;
-    this.aiBoard = param.aiBoard;
-    this.gameId = param.gameId;
+    this.matchOptions = param;
   }
 
   async waitMatching() { // GameInfo
@@ -91,20 +95,23 @@ class KakomimasuClient {
       matchParam.guestName = this.name ?? "ゲスト";
     }
     let matchRes: ApiRes<JoinMatchRes>;
-    if (this.aiName) {
+    if ("aiName" in this.matchOptions) {
       // matchParam.useAi = true;
       // matchParam.aiOption = {
       //   aiName: this.useAi,
       //   boardName: this.aiBoard,
       // };
       matchRes = await this.apiClient.joinAiMatch(
-        { ...matchParam, aiName: this.aiName, boardName: this.aiBoard },
+        {
+          ...matchParam,
+          ...this.matchOptions,
+        },
         `Bearer ${this.bearerToken}`,
       );
-    } else if (this.gameId) {
+    } else if ("gameId" in this.matchOptions) {
       // matchParam.gameId = this.gameId;
       matchRes = await this.apiClient.joinGameIdMatch(
-        this.gameId,
+        this.matchOptions.gameId,
         matchParam,
         `Bearer ${this.bearerToken}`,
       );
@@ -291,13 +298,13 @@ class KakomimasuClient {
     boardPoints: number[][],
     agentCount: number,
     totalTurn: number,
-  ) => void = () => {};
+  ) => void | Promise<void> = () => {};
   public onturn: (
     field: Field[][],
     playerNumber: number,
     agents: AgentPos[],
     turn: number,
-  ) => ActionMatchReq["actions"] = () => {
+  ) => ActionMatchReq["actions"] | Promise<ActionMatchReq["actions"]> = () => {
     return [];
   };
 
@@ -309,7 +316,7 @@ class KakomimasuClient {
     if (ac === undefined || points === undefined) {
       return;
     }
-    this.oninit(
+    await this.oninit(
       points,
       ac,
       info.totalTurn,
@@ -319,7 +326,7 @@ class KakomimasuClient {
       const field = this.getField();
       const pn = this.getPlayerNumber();
       if (field && pn !== undefined) {
-        const actions = this.onturn(
+        const actions = await this.onturn(
           field,
           pn,
           info.players[pn].agents,
