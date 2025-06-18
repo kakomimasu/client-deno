@@ -2,5 +2,8 @@
   "lock": false,
   "lint": {
     "exclude": ["sample.ts", "sample2.ts"]
+  },
+  "imports": {
+    "@kakomimasu/client-js": "jsr:@kakomimasu/client-js@^0.1.0"
   }
 }
