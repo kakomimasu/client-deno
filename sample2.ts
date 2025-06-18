@@ -4,12 +4,12 @@
  * deno run -A sample2.ts c61cc5c6-ba12-4349-9e6a-9e05d6665541
  */
 
-import { config } from "https://deno.land/x/dotenv@v3.2.0/mod.ts";
+import { load } from "@std/dotenv";
 
 import { ActionPost, KakomimasuClient } from "./KakomimasuClient.ts";
 
 // .envファイルの読み込み
-const env = config();
+const env = await load();
 
 // コマンドライン引数の読み込み
 const gameId = Deno.args[0];

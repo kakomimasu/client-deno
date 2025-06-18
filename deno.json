@@ -4,6 +4,7 @@
     "exclude": ["sample.ts", "sample2.ts"]
   },
   "imports": {
-    "@kakomimasu/client-js": "jsr:@kakomimasu/client-js@^0.1.0"
+    "@kakomimasu/client-js": "jsr:@kakomimasu/client-js@^0.1.0",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.5"
   }
 }
