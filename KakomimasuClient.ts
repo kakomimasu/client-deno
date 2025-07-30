@@ -1,13 +1,12 @@
 import {
-  type ActionMatchReq,
-  type ApiRes,
-  default as ApiClient,
+  ApiClient,
   type Game,
-  type JoinAiMatchReq,
-  type JoinMatchReqBase,
-  type JoinMatchRes,
-  // } from "../client-js/deno/mod.ts";
-} from "https://raw.githubusercontent.com/kakomimasu/client-js/v1.0.0-beta.15/deno/mod.ts";
+  type JoinAiMatchRequest,
+  type JoinMatchResponse,
+  type MatchesRequestBase,
+  type SetActionRequest,
+  // } from "../client-js/src/index.ts";
+} from "@kakomimasu/client-js";
 
 function sleep(msec: number) {
   return new Promise<void>((resolve) => {
@@ -37,7 +36,7 @@ type AgentPos = {
 };
 
 type MatchOptions =
-  | Omit<JoinAiMatchReq, "dryRun">
+  | Omit<JoinAiMatchRequest, "dryRun">
   | { gameId: string }
   // deno-lint-ignore ban-types
   | {};
@@ -74,27 +73,24 @@ class KakomimasuClient {
       this.spec = param.spec;
     }
     if (param.host === undefined) {
-      this.apiClient = new ApiClient("https://api.kakomimasu.com");
+      this.apiClient = new ApiClient();
     } else {
-      let host = param.host;
-      if (host.endsWith("/")) {
-        host = host.substring(0, host.length - 1);
-      }
+      const host = param.host;
       //setHost(`${host}/api`);
-      this.apiClient = new ApiClient(host);
+      this.apiClient = new ApiClient({ baseUrl: host.replace(/\/?$/, "/v1") });
     }
     this.matchOptions = param;
   }
 
   async waitMatching() { // GameInfo
-    const matchParam: JoinMatchReqBase = {
+    const matchParam: MatchesRequestBase = {
       spec: this.spec,
     };
     // Bearerがない場合はゲストで参加
     if (!this.bearerToken) {
       matchParam.guestName = this.name ?? "ゲスト";
     }
-    let matchRes: ApiRes<JoinMatchRes>;
+    let matchRes: JoinMatchResponse;
     if ("aiName" in this.matchOptions) {
       // matchParam.useAi = true;
       // matchParam.aiOption = {
@@ -106,37 +102,32 @@ class KakomimasuClient {
           ...matchParam,
           ...this.matchOptions,
         },
-        `Bearer ${this.bearerToken}`,
+        { authMethods: { Bearer: this.bearerToken } },
       );
     } else if ("gameId" in this.matchOptions) {
       // matchParam.gameId = this.gameId;
       matchRes = await this.apiClient.joinGameIdMatch(
         this.matchOptions.gameId,
         matchParam,
-        `Bearer ${this.bearerToken}`,
+        { authMethods: { Bearer: this.bearerToken } },
       );
     } else {
       //console.log(matchParam);
       matchRes = await this.apiClient.joinFreeMatch(
         matchParam,
-        `Bearer ${this.bearerToken}`,
+        { authMethods: { Bearer: this.bearerToken } },
       );
     }
     //console.log(MatchRes);
-    if (matchRes.success) {
-      const matchGame = matchRes.data;
-      this.pic = matchRes.data.pic;
-      this.gameId = matchGame.gameId;
-      this.pno = matchGame.index;
-      console.log("playerid", matchGame, this.pno);
-    } else {
-      console.log(matchRes.data);
-      throw Error("Match Error");
-    }
+    const matchGame = matchRes;
+    this.pic = matchRes.pic;
+    this.gameId = matchGame.gameId;
+    this.pno = matchGame.index;
+    console.log("playerid", matchGame, this.pno);
+
     do {
-      const gameRes = await this.apiClient.getMatch(this.gameId);
-      if (gameRes.success) this.gameInfo = gameRes.data;
-      else throw Error("Get Match Error");
+      const gameRes = await this.apiClient.getMatch(this.gameId!);
+      this.gameInfo = gameRes;
       await sleep(100);
     } while (this.gameInfo.startedAtUnixTime === null);
 
@@ -245,8 +236,7 @@ class KakomimasuClient {
     }
     await sleep(diffTime(this.gameInfo.startedAtUnixTime));
     const res = await this.apiClient.getMatch(this.gameId);
-    if (res.success) this.gameInfo = res.data;
-    else throw Error("Get Match Error");
+    this.gameInfo = res;
     console.log(this.gameInfo);
     this.log = [this.gameInfo];
     console.log("totalTurn", this.gameInfo.totalTurn);
@@ -254,17 +244,16 @@ class KakomimasuClient {
     return this.gameInfo;
   }
 
-  async setActions(actions: ActionMatchReq["actions"]) { // void
+  async setActions(actions: SetActionRequest["actions"]) { // void
     if (!this.gameId || !this.pic) {
       return;
     }
-    const res = await this.apiClient.setAction(
+    await this.apiClient.setAction(
       this.gameId,
       { actions },
-      this.pic,
+      { authMethods: { PIC: this.pic } },
     );
     //console.log("setActions", res);
-    if (res.success === false) throw Error("Set Action Error");
   }
 
   async waitNextTurn() { // GameInfo? (null if end)
@@ -279,12 +268,13 @@ class KakomimasuClient {
     await sleep(diffTime(nextTurnUnixTime));
 
     for (;;) {
-      const res = await this.apiClient.getMatch(this.gameId);
-      if (res.success) {
-        this.gameInfo = res.data;
+      try {
+        const res = await this.apiClient.getMatch(this.gameId);
+        this.gameInfo = res;
         break;
+      } catch (_) {
+        await sleep(100);
       }
-      await sleep(100);
     }
 
     this.log.push(this.gameInfo);
@@ -304,9 +294,10 @@ class KakomimasuClient {
     playerNumber: number,
     agents: AgentPos[],
     turn: number,
-  ) => ActionMatchReq["actions"] | Promise<ActionMatchReq["actions"]> = () => {
-    return [];
-  };
+  ) => SetActionRequest["actions"] | Promise<SetActionRequest["actions"]> =
+    () => {
+      return [];
+    };
 
   async match() {
     console.log("match start");
@@ -341,5 +332,5 @@ class KakomimasuClient {
 }
 
 export { KakomimasuClient };
-export type ActionPost = ActionMatchReq["actions"][number];
+export type ActionPost = SetActionRequest["actions"][number];
 export type { Field };
